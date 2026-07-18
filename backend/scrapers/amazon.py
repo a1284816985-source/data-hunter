@@ -70,7 +70,7 @@ class AmazonScraper:
                                     await item.query_selector("h2 span") or
                                     await item.query_selector("h2"))
                         title = await title_el.inner_text() if title_el else ""
-
+                        # Price — 多策略提取
                         price = 0.0
                         offscreen_el = await item.query_selector(".a-price .a-offscreen")
                         if offscreen_el:
@@ -79,6 +79,16 @@ class AmazonScraper:
                             if m:
                                 try:
                                     price = float(m.group(1))
+                                except ValueError:
+                                    pass
+                        # 兜底: 从整个 item 文本中提取价格
+                        if price == 0.0:
+                            item_text = await item.inner_text()
+                            # 匹配 $XX.XX 或 HKD XX.XX
+                            m = re.search(r"[\$HKD￥¥]\s*([\d,]+\.?\d*)", item_text)
+                            if m:
+                                try:
+                                    price = float(m.group(1).replace(",", ""))
                                 except ValueError:
                                     pass
 

@@ -226,7 +226,7 @@
           </div>
 
           <!-- 情感分析 -->
-          <div v-if="isProduct" class="mt-4 pt-4 border-t">
+          <div class="mt-4 pt-4 border-t">
             <button @click="doSentiment(previewItem.id)" 
                     class="btn-primary text-sm w-full" 
                     :disabled="sentimentLoading">
