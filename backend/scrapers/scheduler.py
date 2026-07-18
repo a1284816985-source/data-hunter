@@ -92,7 +92,7 @@ class ScraperScheduler:
                         items = await scraper.search_articles(task.keyword, task.count_per_platform)
                         item_type = "article"
 
-                    # 保存采集结果
+                    # 保存采集结果 + 下载图片到本地
                     for item_data in items:
                         db_item = ScrapedItem(
                             task_id=task.id,
@@ -101,6 +101,19 @@ class ScraperScheduler:
                             **self._map_item_fields(item_data, item_type),
                         )
                         db.add(db_item)
+                        db.flush()  # 获取 item_id
+
+                        # 下载图片到本地
+                        from services.image_downloader import download_image
+                        img_url = item_data.get("main_image") or item_data.get("cover_image") or ""
+                        if img_url:
+                            local = download_image(img_url, task.id, db_item.id)
+                            if local:
+                                if item_type in ("product", "group_buy"):
+                                    db_item.main_image = local
+                                else:
+                                    db_item.cover_image = local
+
                         total_items += 1
 
                     await scraper.close()

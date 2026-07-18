@@ -4,7 +4,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import init_db, engine
-from api import tasks, data, reports, auth, accounts
+from api import tasks, data, reports, auth, accounts, images
 
 app = FastAPI(title="数据猎手 API", version="0.1.0")
 
@@ -22,6 +22,7 @@ app.include_router(data.router, prefix="/api/data", tags=["数据浏览"])
 app.include_router(reports.router, prefix="/api/reports", tags=["AI报告"])
 app.include_router(auth.router, prefix="/api/auth", tags=["登录"])
 app.include_router(accounts.router, prefix="/api/accounts", tags=["平台账号"])
+app.include_router(images.router, prefix="/api", tags=["图片"])
 
 
 @app.on_event("startup")
