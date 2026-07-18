@@ -126,11 +126,18 @@ class AmazonScraper:
                                         detail_images.append(s)
                         detail_images = detail_images[:10]  # 最多10张
 
-                        link_el = await item.query_selector("h2 a")
+                        # URL — 多策略提取
+                        link_el = (await item.query_selector("h2 a") or
+                                   await item.query_selector("a.a-link-normal[href]") or
+                                   await item.query_selector(".s-product-image-container a") or
+                                   await item.query_selector("a[href*='/dp/']"))
                         source_url = ""
                         if link_el:
                             href = await link_el.get_attribute("href") or ""
-                            source_url = f"https://www.amazon.com{href}" if href.startswith("/") else href
+                            if href.startswith("/"):
+                                source_url = f"https://www.amazon.com{href.split('?')[0]}"  # 去掉 query 参数
+                            elif href.startswith("http"):
+                                source_url = href.split("?")[0]
 
                         results.append({
                             "title": title.strip(),
@@ -164,7 +171,88 @@ class AmazonScraper:
 
         except Exception as e:
             print(f"[亚马逊] 搜索异常: {e}")
+
+        # 访问前10个商品的详情页，提取规格参数
+        if results:
+            detail_count = min(10, len(results))
+            for i in range(detail_count):
+                try:
+                    detail_url = results[i].get("source_url", "")
+                    if detail_url:
+                        specs = await self._scrape_detail(detail_url)
+                        if specs:
+                            results[i]["specs"] = specs
+                except Exception:
+                    continue
+
         return results
+
+    async def _scrape_detail(self, url: str) -> dict:
+        """访问商品详情页，提取规格参数"""
+        try:
+            page = await self._ctx.new_page()
+            await page.goto(url, wait_until="domcontentloaded", timeout=20000)
+            await asyncio.sleep(4)
+
+            specs = {}
+
+            # 策略1: 找所有包含 ":" 的文本行
+            all_text = await page.evaluate("() => (document.body?.innerText || '')")
+            lines = all_text.split("\n")
+            in_specs = False
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                # 常见规格区域触发词
+                if any(w in line.lower() for w in ["technical details", "product information", "specifications", "product details", "item specifics"]):
+                    in_specs = True
+                    continue
+                if in_specs and (":" in line or "：" in line):
+                    sep = ":" if ":" in line else "："
+                    parts = line.split(sep, 1)
+                    key = parts[0].strip()
+                    val = parts[1].strip()
+                    if key and val and len(key) < 60:
+                        specs[key] = val
+                elif in_specs and len(specs) > 5 and not line.startswith("›"):
+                    break
+
+            # 策略2: 提取 feature bullets
+            bullets_el = await page.query_selector("#feature-bullets, #featurebullets_feature_div, #feature-bullets ul")
+            if bullets_el:
+                bullet_items = await bullets_el.query_selector_all("li, span.a-list-item")
+                for bi in bullet_items[:10]:
+                    try:
+                        text = (await bi.inner_text()).strip()
+                        if text and len(text) > 5:
+                            idx = len([k for k in specs if k.startswith("要点")])
+                            specs[f"要点{idx+1}"] = text
+                    except Exception:
+                        continue
+
+            # 策略3: 表格提取
+            tech_tables = await page.query_selector_all(
+                "#productDetails_techSpec_section_1 tr, "
+                "#productDetails_detailBullets_sections tr, "
+                "table.a-keyvalue tr, "
+                "#technicalSpecifications_feature_div tr"
+            )
+            for row in tech_tables:
+                try:
+                    cells = await row.query_selector_all("th, td")
+                    if len(cells) >= 2:
+                        key = (await cells[0].inner_text()).strip()
+                        val = (await cells[1].inner_text()).strip()
+                        if key and val and len(key) < 60:
+                            specs[key] = val
+                except Exception:
+                    continue
+
+            await page.close()
+            return specs if specs else None
+        except Exception:
+            return None
 
     async def search_articles(self, keyword: str, count: int = 20) -> list:
         return []

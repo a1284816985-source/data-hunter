@@ -216,6 +216,17 @@
           <div v-if="previewItem.tags && previewItem.tags.length" class="flex flex-wrap gap-1 mb-4">
             <span v-for="tag in previewItem.tags" :key="tag" class="badge badge-info text-xs">#{{ tag }}</span>
           </div>
+
+          <!-- 规格参数 -->
+          <div v-if="specEntries.length > 0" class="mb-4">
+            <h4 class="text-sm font-medium text-gray-500 mb-2">📋 商品参数</h4>
+            <div class="bg-gray-50 rounded-lg divide-y">
+              <div v-for="(v, k) in specEntries.slice(0, 15)" :key="k" class="flex px-3 py-2 text-sm">
+                <span class="text-gray-400 w-32 flex-shrink-0">{{ k }}</span>
+                <span class="text-gray-700">{{ v }}</span>
+              </div>
+            </div>
+          </div>
           
           <!-- 元信息 -->
           <div class="text-xs text-gray-400 space-y-1">
@@ -385,6 +396,15 @@ const allPreviewImages = computed(() => {
     }
   }
   return imgs
+})
+
+const specEntries = computed(() => {
+  if (!previewItem.value?.specs) return []
+  const specs = previewItem.value.specs
+  if (typeof specs === 'object' && !Array.isArray(specs)) {
+    return Object.entries(specs).filter(([, v]) => v)
+  }
+  return []
 })
 
 async function doSentiment(itemId: number) {
