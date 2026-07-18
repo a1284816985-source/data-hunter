@@ -139,19 +139,82 @@
     </div>
 
     <!-- 页面预览弹窗 -->
-    <div v-if="previewItem" class="fixed inset-0 bg-black/50 z-50 flex flex-col" @click.self="previewItem = null">
-      <div class="bg-white mx-auto my-4 rounded-xl shadow-xl overflow-hidden flex flex-col" style="width: 90vw; height: 90vh;">
-        <div class="flex items-center justify-between px-6 py-3 border-b bg-gray-50">
-          <div class="flex items-center gap-3">
-            <span class="font-medium text-sm truncate max-w-md">{{ previewItem.title }}</span>
-            <span class="badge badge-info text-xs">{{ platformLabel(previewItem.platform) }}</span>
-          </div>
+    <div v-if="previewItem" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" @click.self="previewItem = null">
+      <div class="bg-white rounded-xl shadow-xl w-[700px] max-h-[85vh] overflow-y-auto">
+        <!-- 顶部操作栏 -->
+        <div class="sticky top-0 bg-white border-b px-6 py-3 flex items-center justify-between z-10 rounded-t-xl">
+          <span class="font-medium text-sm">{{ platformLabel(previewItem.platform) }} · 商品详情</span>
           <div class="flex gap-2">
-            <a :href="previewItem.source_url" target="_blank" class="btn-secondary text-xs !px-3 !py-1">↗ 浏览器打开</a>
-            <button @click="previewItem = null" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+            <a :href="previewItem.source_url" target="_blank" class="btn-primary text-xs !px-3 !py-1.5">↗ 打开原页面</a>
+            <button @click="previewItem = null" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
           </div>
         </div>
-        <iframe :src="previewItem.source_url" class="flex-1 border-0 w-full" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>
+        
+        <!-- 内容区 -->
+        <div class="p-6">
+          <!-- 图片 -->
+          <img v-if="isProduct" :src="proxyUrl(previewItem.main_image)" 
+               class="w-full max-h-80 object-contain rounded-lg mb-4 bg-gray-50"
+               referrerpolicy="no-referrer"
+               @error="(e) => { e.target.style.display = 'none' }" />
+          <img v-else :src="proxyUrl(previewItem.cover_image)"
+               class="w-full max-h-80 object-contain rounded-lg mb-4 bg-gray-50"
+               referrerpolicy="no-referrer"
+               @error="(e) => { e.target.style.display = 'none' }" />
+          
+          <!-- 标题 -->
+          <h2 class="text-lg font-bold mb-4">{{ previewItem.title }}</h2>
+          
+          <!-- 商品模式字段 -->
+          <div v-if="isProduct" class="grid grid-cols-3 gap-3 mb-4">
+            <div class="bg-gray-50 rounded-lg p-3 text-center">
+              <div class="text-2xl font-bold text-red-500">¥{{ previewItem.price || '-' }}</div>
+              <div class="text-xs text-gray-400">价格</div>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3 text-center">
+              <div class="text-lg font-bold">{{ previewItem.sales || '-' }}</div>
+              <div class="text-xs text-gray-400">销量</div>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3 text-center">
+              <div class="text-lg font-bold">{{ previewItem.rating || '-' }}</div>
+              <div class="text-xs text-gray-400">评分</div>
+            </div>
+          </div>
+          
+          <!-- 图文模式字段 -->
+          <div v-else class="flex gap-4 mb-4">
+            <div class="bg-gray-50 rounded-lg p-3 text-center flex-1">
+              <div class="text-lg font-bold">{{ previewItem.likes || '-' }}</div>
+              <div class="text-xs text-gray-400">👍 点赞</div>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3 text-center flex-1">
+              <div class="text-lg font-bold">{{ previewItem.comments_count || '-' }}</div>
+              <div class="text-xs text-gray-400">💬 评论</div>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3 text-center flex-1">
+              <div class="text-lg font-bold">{{ previewItem.favorites || '-' }}</div>
+              <div class="text-xs text-gray-400">⭐ 收藏</div>
+            </div>
+          </div>
+          
+          <!-- 正文内容 -->
+          <div v-if="previewItem.content_text" class="bg-gray-50 rounded-lg p-4 mb-4">
+            <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ previewItem.content_text }}</p>
+          </div>
+          
+          <!-- 标签 -->
+          <div v-if="previewItem.tags && previewItem.tags.length" class="flex flex-wrap gap-1 mb-4">
+            <span v-for="tag in previewItem.tags" :key="tag" class="badge badge-info text-xs">#{{ tag }}</span>
+          </div>
+          
+          <!-- 元信息 -->
+          <div class="text-xs text-gray-400 space-y-1">
+            <div v-if="previewItem.shop_name">店铺：{{ previewItem.shop_name }}</div>
+            <div v-if="previewItem.author_name">作者：{{ previewItem.author_name }}</div>
+            <div v-if="previewItem.publish_time">发布时间：{{ previewItem.publish_time }}</div>
+            <div v-if="previewItem.source_url" class="truncate">链接：{{ previewItem.source_url }}</div>
+          </div>
+        </div>
       </div>
     </div>
 
