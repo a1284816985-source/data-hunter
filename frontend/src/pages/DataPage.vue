@@ -215,8 +215,12 @@
           </div>
           
           <!-- 正文内容 -->
-          <div v-if="previewItem.content_text" class="bg-gray-50 rounded-lg p-4 mb-4">
-            <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ previewItem.content_text }}</p>
+          <div class="bg-gray-50 rounded-lg p-4 mb-4">
+            <p class="text-sm text-gray-700 whitespace-pre-wrap" v-if="previewItem.content_text">{{ previewItem.content_text }}</p>
+            <p class="text-sm text-gray-400" v-else>
+              📱 该内容为{{ platformLabel(previewItem.platform) }}平台采集，<br>
+              正文需点击「↗ 打开原页面」查看。
+            </p>
           </div>
           
           <!-- 标签 -->
@@ -346,14 +350,29 @@ const platforms = computed(() => stats.value.by_platform?.map((p: any) => p.plat
 function getQuickSpecs(item: any) {
   const specs = item?.specs
   if (!specs || typeof specs !== 'object' || Array.isArray(specs)) return []
-  // 排除纯数字/布尔值、空值，优先展示有意义的产品参数
-  return Object.entries(specs).filter(([, v]) => {
-    if (!v) return false
-    // 过滤掉可能无意义的值
-    const sv = String(v).toLowerCase()
-    if (sv === '1' || sv === 'true' || sv === 'false') return false
-    return true
-  })
+  // Amazon 字段中英文映射
+  const keyMap: Record<string, string> = {
+    'Quantity': '数量', 'List Price': '定价', 'Color': '颜色', 'Size': '尺寸',
+    'Brand': '品牌', 'Material': '材质', 'Weight': '重量', 'Dimensions': '尺寸',
+    'Style': '款式', 'Shape': '形状', 'Pattern': '图案',
+    'Item Weight': '重量', 'Package Dimensions': '包装尺寸',
+    'Batteries': '电池', 'Power Source': '电源', 'Voltage': '电压',
+    'Country of Origin': '产地', 'Manufacturer': '制造商',
+    'Ships from': '发货地', 'Sold by': '卖家',
+    'ASIN': 'ASIN', 'Date First Available': '上架日期',
+    'Amazon.com Return Policy': '退货政策',
+    'Customer Reviews': '用户评价', 'Best Sellers Rank': '热销排名',
+    'Product Dimensions': '产品尺寸', 'Item model number': '型号',
+    'Is Discontinued By Manufacturer': '停产状态',
+  }
+  return Object.entries(specs)
+    .filter(([, v]) => {
+      if (!v) return false
+      const sv = String(v).toLowerCase()
+      if (sv === '1' || sv === 'true' || sv === 'false') return false
+      return true
+    })
+    .map(([k, v]) => [keyMap[k] || k, v])
 }
 
 function platformLabel(p: string) {
@@ -422,7 +441,17 @@ const specEntries = computed(() => {
   if (!previewItem.value?.specs) return []
   const specs = previewItem.value.specs
   if (typeof specs === 'object' && !Array.isArray(specs)) {
-    return Object.entries(specs).filter(([, v]) => v)
+    const keyMap: Record<string, string> = {
+      'Quantity': '数量', 'List Price': '定价', 'Color': '颜色', 'Size': '尺寸',
+      'Brand': '品牌', 'Material': '材质', 'Weight': '重量', 'Dimensions': '尺寸',
+      'Item Weight': '重量', 'Package Dimensions': '包装尺寸',
+      'Ships from': '发货地', 'Sold by': '卖家',
+      'Amazon.com Return Policy': '退货政策', 'Product Dimensions': '产品尺寸',
+      'Item model number': '型号', 'Country of Origin': '产地',
+    }
+    return Object.entries(specs)
+      .filter(([, v]) => v)
+      .map(([k, v]) => [keyMap[k] || k, v])
   }
   return []
 })
