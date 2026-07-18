@@ -200,12 +200,17 @@ class AmazonScraper:
             all_text = await page.evaluate("() => (document.body?.innerText || '')")
             lines = all_text.split("\n")
             in_specs = False
+            spec_keywords = ["technical details", "product information", "specifications",
+                           "product details", "item specifics", "about this item",
+                           "additional information", "product description"]
             for line in lines:
                 line = line.strip()
                 if not line:
+                    if in_specs and len(specs) > 5:
+                        break  # 空行表示规格区域结束
                     continue
-                # 常见规格区域触发词
-                if any(w in line.lower() for w in ["technical details", "product information", "specifications", "product details", "item specifics"]):
+                # 触发词
+                if any(w in line.lower() for w in spec_keywords):
                     in_specs = True
                     continue
                 if in_specs and (":" in line or "：" in line):
@@ -213,10 +218,10 @@ class AmazonScraper:
                     parts = line.split(sep, 1)
                     key = parts[0].strip()
                     val = parts[1].strip()
-                    if key and val and len(key) < 60:
+                    if key and val and len(key) < 80 and len(val) > 1:
                         specs[key] = val
-                elif in_specs and len(specs) > 5 and not line.startswith("›"):
-                    break
+                elif in_specs and len(specs) > 10 and not any(c in line for c in [":", "：", "›"]):
+                    break  # 规格区域结束
 
             # 策略2: 提取 feature bullets
             bullets_el = await page.query_selector("#feature-bullets, #featurebullets_feature_div, #feature-bullets ul")

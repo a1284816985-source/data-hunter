@@ -346,11 +346,14 @@ const platforms = computed(() => stats.value.by_platform?.map((p: any) => p.plat
 function getQuickSpecs(item: any) {
   const specs = item?.specs
   if (!specs || typeof specs !== 'object' || Array.isArray(specs)) return []
-  // 过滤掉退货政策等通用字段，优先展示产品特有参数
-  const skipKeys = ['return', 'amazon', 'warranty', 'manufacturer']
-  return Object.entries(specs).filter(([k]) => 
-    !skipKeys.some(s => k.toLowerCase().includes(s))
-  )
+  // 排除纯数字/布尔值、空值，优先展示有意义的产品参数
+  return Object.entries(specs).filter(([, v]) => {
+    if (!v) return false
+    // 过滤掉可能无意义的值
+    const sv = String(v).toLowerCase()
+    if (sv === '1' || sv === 'true' || sv === 'false') return false
+    return true
+  })
 }
 
 function platformLabel(p: string) {
