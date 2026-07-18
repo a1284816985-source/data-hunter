@@ -3,6 +3,8 @@
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import os
 from database import init_db, engine
 from api import tasks, data, reports, auth, accounts, images
 
@@ -33,6 +35,12 @@ async def startup():
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "service": "data-hunter"}
+
+
+# 静态文件服务：直接 serve 前端构建产物（替代 Vite 开发服务器）
+FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+if os.path.exists(FRONTEND_DIST):
+    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
 
 
 if __name__ == "__main__":
