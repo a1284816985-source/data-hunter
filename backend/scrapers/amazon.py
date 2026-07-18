@@ -100,8 +100,21 @@ class AmazonScraper:
                             if m:
                                 sales = m.group(1)
 
+                        # 抓取全部图片
                         img_el = await item.query_selector("img.s-image")
                         main_image = await img_el.get_attribute("src") if img_el else ""
+                        
+                        # 尝试抓取轮播图/缩略图
+                        all_imgs = await item.query_selector_all("img")
+                        detail_images = []
+                        for img in all_imgs:
+                            src = await img.get_attribute("src") or ""
+                            data_src = await img.get_attribute("data-src") or ""
+                            for s in [src, data_src]:
+                                if s and s not in detail_images and s != main_image and "s-image" not in (await img.get_attribute("class") or ""):
+                                    if "amazon" in s.lower() or "media-amazon" in s.lower() or "images" in s.lower():
+                                        detail_images.append(s)
+                        detail_images = detail_images[:10]  # 最多10张
 
                         link_el = await item.query_selector("h2 a")
                         source_url = ""
@@ -118,7 +131,7 @@ class AmazonScraper:
                             "shop_name": "Amazon",
                             "source_url": source_url,
                             "original_price": None,
-                            "detail_images": [],
+                            "detail_images": detail_images,
                             "specs": None,
                         })
                     except Exception:

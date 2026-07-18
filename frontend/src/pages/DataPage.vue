@@ -152,12 +152,22 @@
         
         <!-- 内容区 -->
         <div class="p-6">
-          <!-- 图片 -->
-          <img v-if="isProduct" :src="proxyUrl(previewItem.main_image)" 
-               class="w-full max-h-80 object-contain rounded-lg mb-4 bg-gray-50"
-               referrerpolicy="no-referrer"
-               @error="(e) => { e.target.style.display = 'none' }" />
-          <img v-else :src="proxyUrl(previewItem.cover_image)"
+          <!-- 商品图片画廊 -->
+          <div v-if="isProduct && allPreviewImages.length > 0" class="mb-4">
+            <img :src="proxyUrl(allPreviewImages[activeImgIdx])" 
+                 class="w-full max-h-80 object-contain rounded-lg bg-gray-50"
+                 referrerpolicy="no-referrer"
+                 @error="(e) => { e.target.style.display = 'none' }" />
+            <div v-if="allPreviewImages.length > 1" class="flex gap-2 mt-2 overflow-x-auto pb-2">
+              <img v-for="(img, i) in allPreviewImages" :key="i"
+                   :src="proxyUrl(img)" @click="activeImgIdx = i"
+                   class="w-16 h-16 object-cover rounded border-2 cursor-pointer flex-shrink-0"
+                   :class="i === activeImgIdx ? 'border-primary-500' : 'border-gray-200'"
+                   referrerpolicy="no-referrer"
+                   @error="(e) => { e.target.style.display = 'none' }" />
+            </div>
+          </div>
+          <img v-else-if="!isProduct" :src="proxyUrl(previewItem.cover_image)"
                class="w-full max-h-80 object-contain rounded-lg mb-4 bg-gray-50"
                referrerpolicy="no-referrer"
                @error="(e) => { e.target.style.display = 'none' }" />
@@ -214,6 +224,30 @@
             <div v-if="previewItem.publish_time">发布时间：{{ previewItem.publish_time }}</div>
             <div v-if="previewItem.source_url" class="truncate">链接：{{ previewItem.source_url }}</div>
           </div>
+
+          <!-- 情感分析 -->
+          <div v-if="isProduct" class="mt-4 pt-4 border-t">
+            <button @click="doSentiment(previewItem.id)" 
+                    class="btn-primary text-sm w-full" 
+                    :disabled="sentimentLoading">
+              {{ sentimentLoading ? '🤖 AI分析中...' : (sentimentResult ? '🔄 重新分析' : '🤖 AI 情感分析') }}
+            </button>
+            <div v-if="sentimentResult" class="mt-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-lg">{{ sentimentResult.sentiment === 'positive' ? '😊' : sentimentResult.sentiment === 'negative' ? '😟' : '😐' }}</span>
+                <span class="font-bold">{{ sentimentResult.summary }}</span>
+                <span class="badge" :class="sentimentResult.sentiment === 'positive' ? 'badge-success' : sentimentResult.sentiment === 'negative' ? 'badge-error' : 'badge-warning'">
+                  情感分 {{ sentimentResult.score }}
+                </span>
+              </div>
+              <div v-if="sentimentResult.pros?.length" class="text-sm text-green-700 mb-1">✅ {{ sentimentResult.pros.join('；') }}</div>
+              <div v-if="sentimentResult.cons?.length" class="text-sm text-red-600 mb-1">⚠️ {{ sentimentResult.cons.join('；') }}</div>
+              <div class="text-xs text-gray-500 mt-2">
+                <span v-if="sentimentResult.buy_advice">💡 {{ sentimentResult.buy_advice }}</span>
+                <span v-if="sentimentResult.target_users" class="ml-3">👥 {{ sentimentResult.target_users }}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -264,6 +298,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { dataApi, reportApi } from '../api'
+import axios from 'axios'
 
 const route = useRoute()
 const taskId = computed(() => Number(route.params.taskId) || 0)
@@ -332,6 +367,35 @@ function showDetail(item: any) {
 
 function openPreview(item: any) {
   previewItem.value = item
+  activeImgIdx.value = 0
+  sentimentResult.value = null
+}
+
+const activeImgIdx = ref(0)
+const sentimentLoading = ref(false)
+const sentimentResult = ref<any>(null)
+
+const allPreviewImages = computed(() => {
+  if (!previewItem.value) return []
+  const imgs = []
+  if (previewItem.value.main_image) imgs.push(previewItem.value.main_image)
+  if (previewItem.value.detail_images) {
+    for (const img of previewItem.value.detail_images) {
+      if (img && !imgs.includes(img)) imgs.push(img)
+    }
+  }
+  return imgs
+})
+
+async function doSentiment(itemId: number) {
+  sentimentLoading.value = true
+  try {
+    const res = await axios.post(`/api/reports/sentiment/${itemId}`)
+    sentimentResult.value = res.data
+  } catch (e: any) {
+    alert('分析失败：' + (e.response?.data?.detail || e.message))
+  }
+  sentimentLoading.value = false
 }
 
 function openRewrite(item: any) {

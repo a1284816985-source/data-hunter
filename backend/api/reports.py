@@ -123,3 +123,28 @@ async def rewrite_viral(req: RewriteRequest, db: Session = Depends(get_db)):
         "original_title": item.title,
         **result,
     }
+
+
+@router.post("/sentiment/{item_id}", summary="单商品情感分析")
+async def analyze_sentiment(item_id: int, db: Session = Depends(get_db)):
+    """对单个采集商品做 AI 情感分析"""
+    item = db.query(ScrapedItem).filter(ScrapedItem.id == item_id).first()
+    if not item:
+        raise HTTPException(404, "数据不存在")
+
+    from services.ai_service import analyze_product_sentiment
+
+    result = await analyze_product_sentiment(
+        title=item.title or "",
+        price=item.price or 0,
+        rating=item.rating,
+        sales=item.sales or "",
+        shop=item.shop_name or "",
+        platform=item.platform,
+    )
+
+    return {
+        "item_id": item.id,
+        "title": item.title,
+        **result,
+    }

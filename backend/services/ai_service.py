@@ -174,3 +174,53 @@ def _format_items_for_ai(items: List[ScrapedItem], task_type: str) -> str:
                 f"收藏: {item.favorites or '无'} | 作者: {item.author_name or '未知'}"
             )
     return "\n".join(lines)
+
+
+async def analyze_product_sentiment(
+    title: str, price: float, rating, sales: str, shop: str, platform: str
+) -> dict:
+    """对单个商品做 AI 情感分析"""
+    system_prompt = """你是一位资深电商分析师。请根据商品信息，分析该商品的市场情绪和消费者反馈趋势。
+    
+请以 JSON 格式输出：
+{
+    "sentiment": "positive/neutral/negative",
+    "score": 0-100,
+    "summary": "一句话总结市场情绪",
+    "pros": ["优点1", "优点2"],
+    "cons": ["缺点/风险1"],
+    "buy_advice": "购买建议(20字内)",
+    "target_users": "适合人群"
+}"""
+
+    user_prompt = f"""商品：{title}
+价格：¥{price}
+评分：{rating or '未知'}
+销量：{sales or '未知'}
+店铺：{shop}
+平台：{platform}
+
+请分析该商品的市场情绪和消费者反馈趋势。"""
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+
+    try:
+        raw = await _call_ai(messages, temperature=0.6)
+        if "```json" in raw:
+            raw = raw.split("```json")[1].split("```")[0].strip()
+        elif "```" in raw:
+            raw = raw.split("```")[1].split("```")[0].strip()
+        return json.loads(raw)
+    except (json.JSONDecodeError, IndexError):
+        return {
+            "sentiment": "neutral",
+            "score": 50,
+            "summary": raw[:100] if raw else "暂无数据",
+            "pros": [],
+            "cons": [],
+            "buy_advice": "",
+            "target_users": "",
+        }
