@@ -99,6 +99,27 @@ async def delete_report(report_id: int, db: Session = Depends(get_db)):
     return {"message": "已删除"}
 
 
+class TranslateRequest(BaseModel):
+    text: str
+    to_lang: str = "zh-CN"
+
+
+@router.post("/translate", summary="AI 翻译商品标题")
+async def translate_title(req: TranslateRequest):
+    """将英文标题翻译为中文"""
+    from services.ai_service import _call_ai
+    prompt = f"将以下商品标题翻译成简洁的中文（只输出翻译，不要解释）：\n{req.text}"
+    messages = [
+        {"role": "system", "content": "你是专业电商翻译，只输出中文翻译。"},
+        {"role": "user", "content": prompt},
+    ]
+    try:
+        result = await _call_ai(messages, temperature=0.3)
+        return {"translated": result.strip(), "original": req.text}
+    except Exception as e:
+        raise HTTPException(500, f"翻译失败: {e}")
+
+
 @router.post("/rewrite", summary="爆款仿写")
 async def rewrite_viral(req: RewriteRequest, db: Session = Depends(get_db)):
     """基于采集到的爆款内容，AI 仿写新文案"""

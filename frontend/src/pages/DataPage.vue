@@ -95,7 +95,7 @@
                    @error="(e) => { e.target.src = 'https://placehold.co/200x200/e2e8f0/94a3b8?text=封面' }" />
             </div>
             <div class="flex-1 min-w-0">
-              <h3 class="font-medium text-sm line-clamp-2 mb-1">{{ item.title || '无标题' }}</h3>
+              <h3 class="font-medium text-sm line-clamp-2 mb-1">{{ displayTitle(item) }}</h3>
               <p class="text-xs text-gray-400 line-clamp-2 mb-2">{{ item.content_text || '' }}</p>
               <div class="flex items-center gap-4 text-xs text-gray-500">
                 <span>👍 {{ item.likes || '-' }}</span>
@@ -507,6 +507,33 @@ function proxyUrl(url: string): string {
   if (url.includes('placehold.co')) return url
   const needsProxy = CDN_DOMAINS.some(d => url.includes(d))
   return needsProxy ? `/api/image-proxy?url=${encodeURIComponent(url)}` : url
+}
+
+// 标题翻译
+const translating = ref<Record<number, boolean>>({})
+const translatedTitles = ref<Record<number, string>>({})
+
+function displayTitle(item: any): string {
+  return translatedTitles.value[item.id] || item.title || '无标题'
+}
+
+function isEnglishTitle(item: any): boolean {
+  const title = item.title || ''
+  // 超过 30 个英文字符且不含中文
+  const ascii = title.replace(/[^a-zA-Z]/g, '').length
+  return ascii > 20 && !/[\u4e00-\u9fff]/.test(title)
+}
+
+async function translateItem(item: any) {
+  if (translating.value[item.id]) return
+  translating.value[item.id] = true
+  try {
+    const res = await axios.post('/api/reports/translate', { text: item.title })
+    translatedTitles.value[item.id] = res.data.translated
+  } catch {
+    translatedTitles.value[item.id] = item.title // fallback
+  }
+  translating.value[item.id] = false
 }
 
 onMounted(() => {
