@@ -73,6 +73,9 @@
             <span class="text-xs text-gray-400">{{ item.shop_name || '' }}</span>
             <span class="badge badge-info text-xs">{{ platformLabel(item.platform) }}</span>
           </div>
+          <a v-if="item.source_url" :href="item.source_url" target="_blank" 
+             class="block mt-2 text-center text-xs text-primary-600 hover:text-primary-700 border border-primary-200 rounded py-1 no-underline"
+             @click.stop>🔗 浏览原页</a>
         </div>
       </div>
 
@@ -98,6 +101,8 @@
             <div class="flex flex-col gap-2 justify-center flex-shrink-0">
               <span class="badge badge-info text-xs">{{ platformLabel(item.platform) }}</span>
               <button @click="openRewrite(item)" class="text-xs text-primary-600 hover:underline">📝 爆款仿写</button>
+              <a v-if="item.source_url" :href="item.source_url" target="_blank" 
+                 class="text-xs text-gray-500 hover:text-primary-600 no-underline">🔗 浏览</a>
             </div>
           </div>
         </div>
