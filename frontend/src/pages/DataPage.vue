@@ -64,7 +64,15 @@
                  referrerpolicy="no-referrer"
                  @error="(e) => { e.target.src = 'https://placehold.co/300x300/e2e8f0/94a3b8?text=暂无图片' }" />
           </div>
-          <h3 class="font-medium text-sm line-clamp-2 mb-2">{{ item.title || '无标题' }}</h3>
+          <h3 class="font-medium text-sm line-clamp-2 mb-2">
+            {{ displayTitle(item) }}
+            <button v-if="isEnglishTitle(item) && !translatedTitles[item.id]" 
+                    @click.stop="translateItem(item)" 
+                    class="text-xs text-blue-500 hover:underline ml-1"
+                    :disabled="translating[item.id]">
+              {{ translating[item.id] ? '翻译中...' : '🌐 翻译' }}
+            </button>
+          </h3>
           <div class="flex items-center justify-between">
             <span class="text-lg font-bold text-red-500">¥{{ item.price || '-' }}</span>
             <span class="text-xs text-gray-400">{{ item.sales || '' }}</span>
