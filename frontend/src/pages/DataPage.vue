@@ -73,6 +73,13 @@
             <span class="text-xs text-gray-400">{{ item.shop_name || '' }}</span>
             <span class="badge badge-info text-xs">{{ platformLabel(item.platform) }}</span>
           </div>
+          <!-- 规格快览 -->
+          <div v-if="getQuickSpecs(item).length > 0" class="mt-2 pt-2 border-t border-gray-100">
+            <div v-for="s in getQuickSpecs(item).slice(0, 3)" :key="s[0]" class="flex text-xs">
+              <span class="text-gray-400 w-16 flex-shrink-0 truncate">{{ s[0] }}</span>
+              <span class="text-gray-600 truncate">{{ s[1] }}</span>
+            </div>
+          </div>
           <button v-if="item.source_url" @click="openPreview(item)"
              class="block w-full mt-2 text-center text-xs text-primary-600 hover:text-primary-700 border border-primary-200 rounded py-1">🔗 浏览原页</button>
         </div>
@@ -335,6 +342,16 @@ let timer: any = null
 
 const totalPages = computed(() => Math.ceil(total.value / pageSize))
 const platforms = computed(() => stats.value.by_platform?.map((p: any) => p.platform) || [])
+
+function getQuickSpecs(item: any) {
+  const specs = item?.specs
+  if (!specs || typeof specs !== 'object' || Array.isArray(specs)) return []
+  // 过滤掉退货政策等通用字段，优先展示产品特有参数
+  const skipKeys = ['return', 'amazon', 'warranty', 'manufacturer']
+  return Object.entries(specs).filter(([k]) => 
+    !skipKeys.some(s => k.toLowerCase().includes(s))
+  )
+}
 
 function platformLabel(p: string) {
   const m: Record<string, string> = { taobao: '淘宝', xiaohongshu: '小红书', douyin: '抖音', meituan: '美团', amazon: '亚马逊' }
