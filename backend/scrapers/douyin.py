@@ -1,107 +1,128 @@
 """
-抖音爬虫 — Playwright 浏览器自动化
+抖音爬虫 v3 — persistent context + 精准解析
 """
-from scrapers import BaseScraper
-from typing import Optional
+import asyncio
+import re
+from playwright.async_api import async_playwright
+
+PROFILE_DIR = '/tmp/douyin_profile'
 
 
-class DouyinScraper(BaseScraper):
+class DouyinScraper:
 
-    def __init__(self, cookies: Optional[dict] = None):
-        super().__init__("douyin", cookies)
+    def __init__(self, cookies=None):
+        self._pw = None
+        self._ctx = None
+        self._page = None
 
     def supports_article(self) -> bool:
         return True
 
-    async def search_products(self, keyword: str, count: int = 20) -> list:
-        """搜索抖音电商商品"""
-        await self.launch(headless=True)
-        results = []
-        try:
-            search_url = f"https://www.douyin.com/search/{keyword}?type=product"
-            await self.page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
-            await self.page.wait_for_timeout(4000)
+    def supports_group_buy(self) -> bool:
+        return False
 
-            items = await self.page.query_selector_all('[class*="product"], [class*="shop"], [class*="card"]')
-            for item in items[:count]:
-                try:
-                    title_el = await item.query_selector('[class*="title"], [class*="name"]')
-                    price_el = await item.query_selector('[class*="price"]')
-                    sales_el = await item.query_selector('[class*="sales"], [class*="sold"]')
-                    img_el = await item.query_selector("img")
+    async def launch(self, headless: bool = False) -> None:
+        self._pw = await async_playwright().start()
+        self._ctx = await self._pw.chromium.launch_persistent_context(
+            PROFILE_DIR,
+            headless=headless,
+            args=["--no-sandbox"],
+            viewport={"width": 1440, "height": 900},
+            locale="zh-CN",
+        )
+        self._page = self._ctx.pages[0] if self._ctx.pages else await self._ctx.new_page()
 
-                    title = await title_el.inner_text() if title_el else ""
-                    price_text = await price_el.inner_text() if price_el else "0"
-                    sales = await sales_el.inner_text() if sales_el else ""
-                    img_url = await img_el.get_attribute("src") if img_el else ""
-
-                    price = float("".join(c for c in price_text if c.isdigit() or c == ".")) if price_text else 0
-
-                    results.append({
-                        "title": title.strip(),
-                        "price": price,
-                        "sales": sales.strip(),
-                        "main_image": img_url,
-                        "shop_name": "抖音小店",
-                        "source_url": self.page.url,
-                    })
-                except Exception:
-                    continue
-        except Exception as e:
-            print(f"[抖音] 商品搜索失败: {e}")
-        finally:
-            await self.close()
-        return results
+    async def close(self) -> None:
+        if self._ctx:
+            await self._ctx.close()
+        if self._pw:
+            await self._pw.stop()
 
     async def search_articles(self, keyword: str, count: int = 20) -> list:
-        """搜索抖音短视频"""
-        await self.launch(headless=True)
         results = []
         try:
-            search_url = f"https://www.douyin.com/search/{keyword}"
-            await self.page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
-            await self.page.wait_for_timeout(4000)
+            url = f"https://www.douyin.com/search/{keyword}"
+            await self._page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            await asyncio.sleep(6)
 
-            items = await self.page.query_selector_all('[class*="search-result"], [class*="video"], [class*="card"]')
-            for item in items[:count]:
-                try:
-                    title_el = await item.query_selector('[class*="title"], [class*="desc"]')
-                    author_el = await item.query_selector('[class*="author"], [class*="nickname"]')
-                    likes_el = await item.query_selector('[class*="like"], [class*="digg"]')
-                    cover_el = await item.query_selector("img")
+            # Scroll to load more
+            for _ in range(4):
+                await self._page.evaluate("window.scrollBy(0, 800)")
+                await asyncio.sleep(2)
 
-                    title = await title_el.inner_text() if title_el else ""
-                    author = await author_el.inner_text() if author_el else ""
-                    likes = await likes_el.inner_text() if likes_el else ""
-                    cover = await cover_el.get_attribute("src") if cover_el else ""
+            # Extract full page text
+            text = await self._page.evaluate(
+                "() => (document.body?.innerText || '')"
+            )
+            lines = [l.strip() for l in text.split("\n") if l.strip()]
 
-                    results.append({
-                        "title": title.strip(),
-                        "author_name": author.strip(),
-                        "likes": likes.strip(),
-                        "cover_image": cover,
-                        "source_url": self.page.url,
-                    })
-                except Exception:
-                    continue
+            # Parse: each video is: duration, likes, title, @author, ·date
+            i = 0
+            while i < len(lines) and len(results) < count:
+                line = lines[i]
+
+                # Detect start of video block: duration pattern (mm:ss) or like count
+                is_duration = bool(re.match(r'^\d{1,2}:\d{2}$', line))
+                is_likes = bool(re.match(r'^[\d.]+万?$', line))
+
+                if is_duration or is_likes:
+                    duration = line if is_duration else ""
+                    likes = ""
+
+                    if is_duration and i + 1 < len(lines):
+                        # Next line should be likes
+                        if re.match(r'^[\d.]+万?$', lines[i + 1]):
+                            likes = lines[i + 1]
+                            i += 1
+                    elif is_likes:
+                        likes = line
+
+                    # Next lines: title, author, date
+                    title = ""
+                    author = ""
+                    date = ""
+
+                    if i + 1 < len(lines):
+                        candidate = lines[i + 1]
+                        # Title: has content but not @author or ·date pattern
+                        if not candidate.startswith("@") and not candidate.startswith("·"):
+                            title = candidate
+                            i += 1
+
+                    if i + 1 < len(lines) and lines[i + 1].startswith("@"):
+                        author = lines[i + 1]
+                        i += 1
+
+                    if i + 1 < len(lines) and lines[i + 1].startswith("·"):
+                        date = lines[i + 1]
+                        i += 1
+
+                    if title and len(title) > 3:
+                        # Extract hashtags from title
+                        tags = re.findall(r'#(\w+)', title)
+
+                        results.append({
+                            "title": title,
+                            "author_name": author.lstrip("@"),
+                            "likes": likes,
+                            "cover_image": "",
+                            "source_url": url,
+                            "content_text": title,
+                            "comments_count": "",
+                            "favorites": "",
+                            "publish_time": date.lstrip("· "),
+                            "tags": tags,
+                            "comments": [],
+                        })
+
+                i += 1
+
         except Exception as e:
-            print(f"[抖音] 视频搜索失败: {e}")
-        finally:
-            await self.close()
+            print(f"[抖音] 搜索异常: {e}")
         return results
+
+    async def search_products(self, keyword: str, count: int = 20) -> list:
+        return []
 
     async def search_group_buys(self, keyword: str, count: int = 20) -> list:
-        """抖音有团购（抖音生活服务）"""
-        await self.launch(headless=True)
-        results = []
-        try:
-            search_url = f"https://www.douyin.com/search/{keyword}?type=general"
-            await self.page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
-            await self.page.wait_for_timeout(4000)
-            # 抖音团购在生活服务 tab 下，实际 URL 可能不同
-            results = await self.search_products(keyword, count)
-        except Exception as e:
-            print(f"[抖音] 团购搜索失败: {e}")
-        finally:
-            await self.close()
-        return results
+        return []
