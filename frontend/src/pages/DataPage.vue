@@ -73,9 +73,8 @@
             <span class="text-xs text-gray-400">{{ item.shop_name || '' }}</span>
             <span class="badge badge-info text-xs">{{ platformLabel(item.platform) }}</span>
           </div>
-          <a v-if="item.source_url" :href="item.source_url" target="_blank" 
-             class="block mt-2 text-center text-xs text-primary-600 hover:text-primary-700 border border-primary-200 rounded py-1 no-underline"
-             @click.stop>🔗 浏览原页</a>
+          <button v-if="item.source_url" @click="openPreview(item)"
+             class="block w-full mt-2 text-center text-xs text-primary-600 hover:text-primary-700 border border-primary-200 rounded py-1">🔗 浏览原页</button>
         </div>
       </div>
 
@@ -101,8 +100,8 @@
             <div class="flex flex-col gap-2 justify-center flex-shrink-0">
               <span class="badge badge-info text-xs">{{ platformLabel(item.platform) }}</span>
               <button @click="openRewrite(item)" class="text-xs text-primary-600 hover:underline">📝 爆款仿写</button>
-              <a v-if="item.source_url" :href="item.source_url" target="_blank" 
-                 class="text-xs text-gray-500 hover:text-primary-600 no-underline">🔗 浏览</a>
+              <button v-if="item.source_url" @click="openPreview(item)"
+                 class="text-xs text-gray-500 hover:text-primary-600">🔗 浏览</button>
             </div>
           </div>
         </div>
@@ -136,6 +135,23 @@
         </div>
         <a v-if="detailItem.source_url" :href="detailItem.source_url" target="_blank" class="text-primary-600 text-sm mt-4 inline-block">查看原文 →</a>
         <button @click="detailItem = null" class="btn-secondary w-full mt-4">关闭</button>
+      </div>
+    </div>
+
+    <!-- 页面预览弹窗 -->
+    <div v-if="previewItem" class="fixed inset-0 bg-black/50 z-50 flex flex-col" @click.self="previewItem = null">
+      <div class="bg-white mx-auto my-4 rounded-xl shadow-xl overflow-hidden flex flex-col" style="width: 90vw; height: 90vh;">
+        <div class="flex items-center justify-between px-6 py-3 border-b bg-gray-50">
+          <div class="flex items-center gap-3">
+            <span class="font-medium text-sm truncate max-w-md">{{ previewItem.title }}</span>
+            <span class="badge badge-info text-xs">{{ platformLabel(previewItem.platform) }}</span>
+          </div>
+          <div class="flex gap-2">
+            <a :href="previewItem.source_url" target="_blank" class="btn-secondary text-xs !px-3 !py-1">↗ 浏览器打开</a>
+            <button @click="previewItem = null" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+          </div>
+        </div>
+        <iframe :src="previewItem.source_url" class="flex-1 border-0 w-full" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>
       </div>
     </div>
 
@@ -199,6 +215,7 @@ const pageSize = 20
 const total = ref(0)
 const detailItem = ref<any>(null)
 const rewriteItem = ref<any>(null)
+const previewItem = ref<any>(null)
 const rewriteTopic = ref('')
 const rewriteResult = ref<any>(null)
 const rewriting = ref(false)
@@ -248,6 +265,10 @@ async function exportExcel() {
 
 function showDetail(item: any) {
   detailItem.value = item
+}
+
+function openPreview(item: any) {
+  previewItem.value = item
 }
 
 function openRewrite(item: any) {
