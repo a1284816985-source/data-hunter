@@ -60,7 +60,9 @@
       <div v-if="isProduct" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         <div v-for="item in items" :key="item.id" class="card hover:shadow-md transition-shadow cursor-pointer" @click="showDetail(item)">
           <div class="aspect-square bg-gray-100 rounded-lg mb-3 overflow-hidden">
-            <img :src="item.main_image || 'https://placehold.co/300x300/e2e8f0/94a3b8?text=暂无图片'" class="w-full h-full object-cover" :alt="item.title" />
+            <img :src="item.main_image || 'https://placehold.co/300x300/e2e8f0/94a3b8?text=暂无图片'" class="w-full h-full object-cover" :alt="item.title"
+                 referrerpolicy="no-referrer"
+                 @error="(e) => { e.target.src = 'https://placehold.co/300x300/e2e8f0/94a3b8?text=暂无图片' }" />
           </div>
           <h3 class="font-medium text-sm line-clamp-2 mb-2">{{ item.title || '无标题' }}</h3>
           <div class="flex items-center justify-between">
@@ -79,7 +81,9 @@
         <div v-for="item in items" :key="item.id" class="card hover:shadow-md transition-shadow">
           <div class="flex gap-4">
             <div class="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-              <img :src="item.cover_image || 'https://placehold.co/200x200/e2e8f0/94a3b8?text=封面'" class="w-full h-full object-cover" />
+              <img :src="item.cover_image || 'https://placehold.co/200x200/e2e8f0/94a3b8?text=封面'" class="w-full h-full object-cover"
+                   referrerpolicy="no-referrer"
+                   @error="(e) => { e.target.src = 'https://placehold.co/200x200/e2e8f0/94a3b8?text=封面' }" />
             </div>
             <div class="flex-1 min-w-0">
               <h3 class="font-medium text-sm line-clamp-2 mb-1">{{ item.title || '无标题' }}</h3>
@@ -114,7 +118,9 @@
     <div v-if="detailItem" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" @click.self="detailItem = null">
       <div class="bg-white rounded-xl shadow-xl p-8 w-[600px] max-h-[80vh] overflow-y-auto">
         <h2 class="text-lg font-bold mb-4">{{ detailItem.title }}</h2>
-        <img :src="detailItem.main_image" class="w-full rounded-lg mb-4" v-if="detailItem.main_image" />
+        <img :src="detailItem.main_image" class="w-full rounded-lg mb-4" v-if="detailItem.main_image"
+             referrerpolicy="no-referrer"
+             @error="(e) => { e.target.style.display = 'none' }" />
         <div class="grid grid-cols-2 gap-3 text-sm">
           <div><span class="text-gray-400">价格：</span><span class="font-bold text-red-500">¥{{ detailItem.price }}</span></div>
           <div><span class="text-gray-400">原价：</span>¥{{ detailItem.original_price || '-' }}</div>
