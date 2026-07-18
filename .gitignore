@@ -1,0 +1,30 @@
+
+# Python
+__pycache__/
+*.py[cod]
+*.db
+venv/
+.env
+exports/
+*.egg-info/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Scraper debug
+scrapers/debug_*.py
+scrapers/probe_*.py
+scrapers/*_v[0-9].py
+
+# Temp
+/tmp/
+

@@ -1,0 +1,138 @@
+"""
+亚马逊爬虫 — 已验证版本（无需登录，Stealth 即可）
+"""
+import asyncio
+from playwright.async_api import async_playwright
+from playwright_stealth import Stealth
+import re
+
+
+class AmazonScraper:
+    """亚马逊爬虫 — 兼容 scheduler 接口"""
+
+    def __init__(self, cookies=None):
+        self._pw = None
+        self._browser = None
+        self._ctx = None
+        self._page = None
+
+    def supports_article(self) -> bool:
+        return False
+
+    def supports_group_buy(self) -> bool:
+        return False
+
+    async def launch(self, headless: bool = True) -> None:
+        self._pw = await async_playwright().start()
+        self._browser = await self._pw.chromium.launch(
+            headless=headless,
+            args=["--no-sandbox", "--disable-blink-features=AutomationControlled"],
+        )
+        self._ctx = await self._browser.new_context(
+            viewport={"width": 1440, "height": 900},
+            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36",
+            locale="en-US",
+        )
+        self._page = await self._ctx.new_page()
+        stealth = Stealth()
+        await stealth.apply_stealth_async(self._page)
+
+    async def close(self) -> None:
+        if self._browser:
+            await self._browser.close()
+        if self._pw:
+            await self._pw.stop()
+
+    async def search_products(self, keyword: str, count: int = 20) -> list:
+        results = []
+        try:
+            url = f"https://www.amazon.com/s?k={keyword}"
+            await self._page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            await asyncio.sleep(4)
+            await self._page.evaluate("window.scrollBy(0, 500)")
+            await asyncio.sleep(1)
+
+            items = await self._page.query_selector_all(
+                '[data-component-type="s-search-result"]'
+            )
+
+            for item in items:
+                if len(results) >= count:
+                    break
+                try:
+                    # Title — try multiple selectors
+                    title_el = (await item.query_selector("h2 a span") or
+                                await item.query_selector("h2 span") or
+                                await item.query_selector("h2"))
+                    title = await title_el.inner_text() if title_el else ""
+
+                    # Price — use .a-offscreen for clean price text
+                    price = 0.0
+                    offscreen_el = await item.query_selector(".a-price .a-offscreen")
+                    if offscreen_el:
+                        price_text = await offscreen_el.inner_text()
+                        # Extract number: "HKD 352.81" → 352.81
+                        m = re.search(r"([\d,]+\.?\d*)", price_text.replace(",", ""))
+                        if m:
+                            try:
+                                price = float(m.group(1))
+                            except ValueError:
+                                pass
+
+                    # Rating
+                    rating = None
+                    rating_el = await item.query_selector(".a-icon-star-small .a-icon-alt, .a-icon-alt")
+                    if rating_el:
+                        rating_text = await rating_el.inner_text()
+                        m = re.search(r"(\d+\.?\d*)", rating_text)
+                        if m:
+                            rating = float(m.group(1))
+
+                    # Reviews count — extract from text if selector fails
+                    sales = ""
+                    # Try aria-label first
+                    star_el = await item.query_selector(".a-icon-star-small")
+                    if star_el:
+                        sales = (await star_el.inner_text()).strip()
+                    # Fallback: regex from item text
+                    if not sales or not sales.replace(",", "").replace(".", "").isdigit():
+                        item_text = await item.inner_text()
+                        m = re.search(r"([\d,]+)\s+ratings?", item_text, re.IGNORECASE)
+                        if m:
+                            sales = m.group(1)
+
+                    # Image
+                    img_el = await item.query_selector("img.s-image")
+                    main_image = await img_el.get_attribute("src") if img_el else ""
+
+                    # URL
+                    link_el = await item.query_selector("h2 a")
+                    source_url = ""
+                    if link_el:
+                        href = await link_el.get_attribute("href") or ""
+                        source_url = f"https://www.amazon.com{href}" if href.startswith("/") else href
+
+                    results.append({
+                        "title": title.strip(),
+                        "price": price,
+                        "rating": rating,
+                        "sales": sales,
+                        "main_image": main_image,
+                        "shop_name": "Amazon",
+                        "source_url": source_url,
+                        "original_price": None,
+                        "detail_images": [],
+                        "specs": None,
+                    })
+                except Exception:
+                    continue
+
+        except Exception as e:
+            print(f"[亚马逊] 搜索异常: {e}")
+        return results
+
+    async def search_articles(self, keyword: str, count: int = 20) -> list:
+        return []
+
+    async def search_group_buys(self, keyword: str, count: int = 20) -> list:
+        return []
