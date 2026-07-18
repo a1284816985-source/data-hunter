@@ -145,7 +145,7 @@
         <div class="sticky top-0 bg-white border-b px-6 py-3 flex items-center justify-between z-10 rounded-t-xl">
           <span class="font-medium text-sm">{{ platformLabel(previewItem.platform) }} · 商品详情</span>
           <div class="flex gap-2">
-            <a :href="previewItem.source_url" target="_blank" class="btn-primary text-xs !px-3 !py-1.5">↗ 打开原页面</a>
+            <a :href="previewItem.source_url" target="_blank" rel="noreferrer noopener" class="btn-primary text-xs !px-3 !py-1.5">↗ 打开原页面</a>
             <button @click="previewItem = null" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
           </div>
         </div>

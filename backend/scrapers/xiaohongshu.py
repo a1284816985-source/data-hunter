@@ -119,10 +119,22 @@ class XiaohongshuScraper:
                     img_el = await item.query_selector("img")
                     cover_image = await img_el.get_attribute("src") if img_el else ""
 
-                    link_el = await item.query_selector("a[href]")
+                    # 优先取带 xsec_token 的链接（/search_result/ 而非 /explore/）
+                    link_els = await item.query_selector_all("a[href]")
                     source_url = ""
-                    if link_el:
+                    for link_el in link_els:
                         href = await link_el.get_attribute("href") or ""
+                        if href.startswith("/"):
+                            full = f"https://www.xiaohongshu.com{href}"
+                        else:
+                            full = href
+                        if "xsec_token" in full:
+                            source_url = full
+                            break
+                        if not source_url and "/explore/" not in href:
+                            source_url = full
+                    if not source_url and link_els:
+                        href = await link_els[0].get_attribute("href") or ""
                         source_url = f"https://www.xiaohongshu.com{href}" if href.startswith("/") else href
 
                     results.append({
@@ -189,10 +201,22 @@ class XiaohongshuScraper:
                     img_el = await item.query_selector("img")
                     main_image = await img_el.get_attribute("src") if img_el else ""
 
-                    link_el = await item.query_selector("a[href]")
+                    # 优先取带 xsec_token 的链接（/search_result/ 而非 /explore/）
+                    link_els = await item.query_selector_all("a[href]")
                     source_url = ""
-                    if link_el:
+                    for link_el in link_els:
                         href = await link_el.get_attribute("href") or ""
+                        if href.startswith("/"):
+                            full = f"https://www.xiaohongshu.com{href}"
+                        else:
+                            full = href
+                        if "xsec_token" in full:
+                            source_url = full
+                            break
+                        if not source_url and "/explore/" not in href:
+                            source_url = full
+                    if not source_url and link_els:
+                        href = await link_els[0].get_attribute("href") or ""
                         source_url = f"https://www.xiaohongshu.com{href}" if href.startswith("/") else href
 
                     results.append({
