@@ -93,6 +93,9 @@ class ScraperScheduler:
                         item_type = "article"
 
                     # 保存采集结果
+                    # 过滤无货 + 异常低价
+                    items = self._filter_items(items, task.task_type)
+                    
                     for item_data in items:
                         db_item = ScrapedItem(
                             task_id=task.id,
@@ -124,6 +127,53 @@ class ScraperScheduler:
             traceback.print_exc()
         finally:
             db.close()
+
+    def _filter_items(self, items: list, task_type: str) -> list:
+        """过滤无货商品 + 异常低价"""
+        if not items:
+            return items
+
+        filtered = []
+
+        if task_type == TaskType.PRODUCT_GROUP.value:
+            # 收集有效价格
+            prices = []
+            for item in items:
+                p = item.get("price", 0)
+                if p and p > 0.5:
+                    prices.append(p)
+
+            # 计算中位数，过滤低于中位数 15% 的异常低价
+            if prices:
+                prices.sort()
+                median = prices[len(prices) // 2]
+                min_price = max(0.5, median * 0.15)
+
+                for item in items:
+                    p = item.get("price", 0) or 0
+                    title = item.get("title", "")
+                    # 跳过无价格（无货/下架）
+                    if p <= 0:
+                        continue
+                    # 跳过异常低价
+                    if p < min_price:
+                        continue
+                    # 跳过明显的配件/补差价链接
+                    skip_words = ["补差价", "补邮费", "配件", "专用", "仅", "定金"]
+                    if any(w in title for w in skip_words) and p < 10:
+                        continue
+                    filtered.append(item)
+
+                removed = len(items) - len(filtered)
+                if removed > 0:
+                    print(f"[过滤] {removed}/{len(items)} 条被过滤 (无货/异常低价/配件)")
+            else:
+                filtered = items
+        else:
+            # 图文/视频：不过滤
+            filtered = items
+
+        return filtered
 
     def _get_scraper(self, platform_name: str) -> Optional[BaseScraper]:
         """根据平台名获取爬虫实例"""
